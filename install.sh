@@ -49,7 +49,7 @@ if [ ! -f "$CONF_FILE" ]; then
   cat <<'EOF' >"$CONF_FILE"
 {
   "feeds": [
-    "https://www.lemonde.fr/rss/une.xml"
+    "https://news.ycombinator.com/rss"
   ],
   "outputDir": "~/glint"
 }
