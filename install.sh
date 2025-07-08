@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL=${REPO_URL:-"https://github.com/ton-org/glint.git"}
+REPO_URL=${REPO_URL:-"https://github.com/saravenpi/glint.git"}
 INSTALL_DIR=${INSTALL_DIR:-"$HOME/.glint-src"}
 BIN_DIR=${BIN_DIR:-"$HOME/.local/bin"}
 WRAPPER="$BIN_DIR/glint"
