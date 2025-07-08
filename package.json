@@ -1,0 +1,26 @@
+{
+  "name": "glint",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^24.0.10"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.62",
+    "@langchain/openai": "^0.5.18",
+    "cheerio": "^1.1.0",
+    "openai": "^5.8.2",
+    "rss-parser": "^3.13.0",
+    "zod": "^3.25.76"
+  },
+  "scripts": {
+    "build": "bun build index.ts --outdir dist --target bun",
+    "start": "bun run build && bun run dist/index.js",
+    "dev": "bun run src/index.ts"
+  }
+}
