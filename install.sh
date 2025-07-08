@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+unset REPO_URL INSTALL_DIR BIN_DIR WRAPPER CONF_FILE
 REPO_URL=${REPO_URL:-"https://github.com/saravenpi/glint.git"}
 INSTALL_DIR=${INSTALL_DIR:-"$HOME/.glint-src"}
 BIN_DIR=${BIN_DIR:-"$HOME/.local/bin"}
@@ -60,4 +61,4 @@ fi
 
 log "Installation complete 🎉  Add $BIN_DIR to your \$PATH if necessary."
 log "Run: glint"
-
+unset REPO_URL INSTALL_DIR BIN_DIR WRAPPER CONF_FILE
