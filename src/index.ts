@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
 
 import RSSParser from "rss-parser";
 import { load as loadHTML } from "cheerio";
@@ -10,6 +11,10 @@ import { z } from "zod";
 
 const CONFIG_PATH = path.join(os.homedir(), ".glint.conf");
 const DATE_ISO = new Date().toISOString().split("T")[0];
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROMPT_PATH = path.join(__dirname, "..", "prompt.xml");
 
 type Config = {
   feeds: string[];
@@ -79,7 +84,7 @@ async function main() {
   const reviewDir = path.join(root, DATE_ISO);
   await fs.mkdir(reviewDir, { recursive: true });
 
-  const systemPrompt = await fs.readFile("prompt.xml", "utf8");
+  const systemPrompt = await fs.readFile(PROMPT_PATH, "utf8");
   const chat = new ChatOpenAI({
     temperature: 0.3,
     modelName: "gpt-4o-mini",
