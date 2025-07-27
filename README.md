@@ -1,125 +1,84 @@
-# 🌟 Glint — RSS → Markdown, right in your terminal
+# 🌟 Glint — RSS → Markdown
 
-> **TL;DR :** Glint fetches the latest posts from your favourite RSS feeds, asks OpenAI for a long-yet-concise Markdown digest, and drops everything in dated folders so you can read the news straight from `$ less`. All in TypeScript, powered by Bun & LangChain.
+Glint fetches RSS feeds, scrapes articles, and generates AI-powered Markdown summaries. All organized in daily folders for easy terminal reading.
 
----
+Built with TypeScript, Bun, and LangChain for maximum performance.
 
-## ✨ Features
+## ⚡ Quick Start
 
-| 🚀 What it does                           | 🛠️ How it works                                      |        |
-| ----------------------------------------- | ----------------------------------------------------- | ------ |
-| Reads your feed list from `~/.glint.conf` | Simple JSON config, overridable output directory      |        |
-| Grabs **5 latest items** per feed         | Uses `rss-parser` for speedy parsing                  |        |
-| Scrapes the full article                  | Cheerio (`<article>`, `<main>`, or `<body>` fallback) |        |
-| Summarises & converts to Markdown         | OpenAI via LangChain with a custom `prompt.xml`       |        |
-| Writes a **daily folder**                 | e.g. `~/glint/2025-07-08/` with one `.md` file / post |        |
-| Works as a one-liner install              | \`curl …/install.sh                                   | bash\` |
+1. **Install:**
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/saravenpi/glint/main/install.sh | bash
+   ```
 
----
+2. **Set OpenAI API key:**
+   ```bash
+   export OPENAI_API_KEY="sk-..."
+   ```
 
-## ⚡ Quick install
+3. **Create config:**
+   ```bash
+   cp glint.yml.example ~/glint.yml
+   ```
 
-Install it
-```bash
-curl -fsSL https://raw.githubusercontent.com/saravenpi/glint/main/install.sh | bash
+4. **Run:**
+   ```bash
+   glint
+   ```
+
+## 🗂️ Configuration
+
+Edit `~/glint.yml` to customize feeds and output directory:
+
+```yaml
+feeds:
+  - https://www.lemonde.fr/rss/une.xml
+  - https://rss.nytimes.com/services/xml/rss/nyt/World.xml
+  - https://feeds.bbci.co.uk/news/world/rss.xml
+
+outputDir: ~/glint
 ```
 
-Run it
-```bash
-glint
-```
+## 📝 Output
 
-> **Note:** Glint needs an OpenAI API key.
-> `export OPENAI_API_KEY="sk-..."` before running.
-
----
-
-## 🗂️ Configuration (`~/.glint.conf`)
-
-```jsonc
-{
-  "feeds": [
-    "https://www.lemonde.fr/rss/une.xml",
-    "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"
-  ],
-  "outputDir": "~/glint"
-}
-```
-
-Change it, save, rerun — done.
-`~` is automatically resolved to your home directory.
-
----
-
-## 📝 Daily output
+Articles are saved in daily folders:
 
 ```
-~/glint/
-└── 2025-07-08/
-    ├── wildfire-siberia.md
-    ├── ai-regulation-eu.md
-    └── economy-q2-forecast.md
+~/glint/2025-07-27/
+├── article-1.md
+├── article-2.md
+└── summary.md  ← Daily overview
 ```
 
-Each Markdown file is a **40 %-length** digest that preserves every key name, figure, and quote, with clear headings & bullet points for fast reading.
+Each article is condensed to ~40% length while preserving key facts, figures, and quotes. The summary organizes all articles by topic.
 
----
-
-## 🔍 How it talks to OpenAI
-
-The prompt lives in `prompt.xml`:
-
-```xml
-<prompt>
-  <instructions>
-    …(keeps all the important info, Markdown only, etc.)…
-  </instructions>
-  <output_format>markdown</output_format>
-</prompt>
-```
-
-Feel free to tweak the style, target length, tone, or add front-matter.
-
----
-
-## 🛠️ Development setup
+## 🛠️ Development
 
 ```bash
 git clone https://github.com/saravenpi/glint.git
 cd glint
 bun install
-
-# run once
-bun run src/index.ts
-
-# or watch mode
-bun run --watch src/index.ts
+bun run dev
 ```
 
-### Tech stack
+**Commands:**
+- `bun run dev` - Run from source
+- `bun run build` - Build application  
+- `bun run start` - Build and run
 
-* **Bun** — lightning-fast runtime & package manager
-* **TypeScript** — strict typing, no surprises
-* **LangChain 0.2+** — `@langchain/openai`, `@langchain/core`
-* **OpenAI** — GPT-4o-mini by default (configurable)
-* **Cheerio** — server-side jQuery for HTML scraping
-* **rss-parser** — battle-tested RSS/Atom parsing
-* **Zod** — runtime validation of the config file
+**Tech Stack:**
+- **Bun** - Runtime and package manager
+- **TypeScript** - Type safety
+- **LangChain** - OpenAI integration
+- **Cheerio** - HTML scraping
+- **Zod** - Config validation
 
----
-
-## 🤝 Contributing
-
-1. Fork & clone
-2. `bun install`
-3. Create a feature branch
-4. Make your magic
-5. PR ❤️
-
-Please run `bun test` (coming soon) and keep commits clean.
-
----
+**Performance:**
+- Parallel RSS fetching and article scraping
+- Smart caching (6h TTL) to avoid duplicate work
+- Optimized AI prompts for minimal token usage
+- Batch processing for maximum speed
 
 ## 📜 License
 
-MIT — do what you want, just don’t blame us if your terminal catches fire. 🔥
+MIT

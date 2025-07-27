@@ -1,122 +1,102 @@
-import fs from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
-import { fileURLToPath } from "node:url";
 
-import RSSParser from "rss-parser";
-import { load as loadHTML } from "cheerio";
-import { ChatOpenAI } from "@langchain/openai";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { z } from "zod";
+import { loadConfig, resolveOutputDir } from "./config";
+import { fetchAllFeeds } from "./rss";
+import { fetchAllArticles } from "./scraper";
+import { AIProcessor } from "./ai";
+import { 
+  safeFileName, 
+  getCurrentDateISO, 
+  ensureDirectoryExists, 
+  writeMarkdownFile,
+  writeBatchMarkdownFiles 
+} from "./utils";
+import type { ProcessedArticle } from "./types";
 
-const CONFIG_PATH = path.join(os.homedir(), ".glint.conf");
-const DATE_ISO = new Date().toISOString().split("T")[0];
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PROMPT_PATH = path.join(__dirname, "..", "prompt.xml");
-
-type Config = {
-  feeds: string[];
-  outputDir?: string;
-};
-
-async function loadConfig(): Promise<Config> {
-  const raw = await fs.readFile(CONFIG_PATH, "utf8");
-  const schema = z.object({
-    feeds: z.array(z.string()).nonempty(),
-    outputDir: z.string().optional(),
-  });
-  return schema.parse(JSON.parse(raw));
-}
-
-async function fetchFeedItems(url: string, limit = 5) {
-  try {
-    const parser = new RSSParser();
-    const feed = await parser.parseURL(url);
-    return feed.items.slice(0, limit);
-  } catch {
-    throw new Error(`Invalid RSS source: ${url}`);
-  }
-}
-
-async function fetchArticleText(url: string): Promise<string> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch article: ${url}`);
-  const html = await res.text();
-  const $ = loadHTML(html);
-  const text =
-    $("article").text().trim() ||
-    $("main").text().trim() ||
-    $("body").text().trim();
-  return text.replace(/\s+/g, " ").trim();
-}
-
-async function toMarkdown(
-  article: string,
-  model: ChatOpenAI,
-  prompt: string
-): Promise<string> {
-  const response = await model.invoke([
-    new SystemMessage(prompt),
-    new HumanMessage(article),
-  ]);
-  return response.content.toString();
-}
-
-function safeFileName(title: string): string {
-  return (
-    title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "")
-      .slice(0, 60) + ".md"
-  );
-}
-
+/**
+ * Main application function that orchestrates the entire news processing pipeline
+ * @returns {Promise<void>}
+ */
 async function main() {
+  const startTime = Date.now();
+  
   const config = await loadConfig();
-  const root = path.resolve(
-    (config.outputDir ?? "~/glint").replace(/^~/, os.homedir())
+  const root = resolveOutputDir(config);
+  const dateISO = getCurrentDateISO();
+  
+  if (!dateISO) process.exit(1);
+
+  const reviewDir = path.join(root, dateISO);
+  await ensureDirectoryExists(reviewDir);
+
+  console.log(`🚀  Starting parallel processing of ${config.feeds.length} feeds...`);
+
+  const feedResults = await fetchAllFeeds(config.feeds);
+  const allArticles = feedResults.flatMap(({ url, items }) => 
+    items.filter(item => item.link && item.title).map(item => ({
+      url: item.link!,
+      title: item.title!,
+      feedUrl: url
+    }))
   );
-  if (!DATE_ISO) process.exit(1);
 
-  const reviewDir = path.join(root, DATE_ISO);
-  await fs.mkdir(reviewDir, { recursive: true });
+  console.log(`📰  Found ${allArticles.length} articles to process`);
 
-  const systemPrompt = await fs.readFile(PROMPT_PATH, "utf8");
-  const chat = new ChatOpenAI({
-    temperature: 0.3,
-    modelName: "gpt-4o-mini",
-  });
+  if (allArticles.length === 0) {
+    console.log("No articles found");
+    return;
+  }
 
-  for (const feed of config.feeds) {
-    console.log(`📥  ${feed}`);
-    let items;
+  const articleTexts = await fetchAllArticles(allArticles.map(a => a.url));
+  const validArticles = allArticles.filter((_, i) => articleTexts[i] && articleTexts[i].text.length > 0);
+  const validTexts = articleTexts.filter(t => t && t.text.length > 0);
+
+  console.log(`📝  Successfully scraped ${validArticles.length} articles`);
+
+  const aiProcessor = new AIProcessor();
+  await aiProcessor.loadPrompt();
+
+  console.log(`🤖  Processing with AI...`);
+  const markdownResults = await aiProcessor.batchToMarkdown(validTexts.map(t => t.text));
+
+  const filesToWrite: { path: string; content: string }[] = [];
+  const processedArticles: ProcessedArticle[] = [];
+
+  for (let i = 0; i < validArticles.length; i++) {
+    const article = validArticles[i];
+    const md = markdownResults[i];
+    
+    filesToWrite.push({
+      path: path.join(reviewDir, safeFileName(article.title)),
+      content: md
+    });
+    
+    processedArticles.push({
+      title: article.title,
+      markdown: md,
+      feedUrl: article.feedUrl
+    });
+  }
+
+  console.log(`💾  Writing ${filesToWrite.length} files...`);
+  await writeBatchMarkdownFiles(filesToWrite);
+
+  if (processedArticles.length > 0) {
+    console.log("📝  Generating daily summary...");
     try {
-      items = await fetchFeedItems(feed);
+      const summary = await aiProcessor.generateSummary(processedArticles, dateISO);
+      await writeMarkdownFile(
+        path.join(reviewDir, "summary.md"),
+        summary
+      );
+      console.log("✅  Summary created");
     } catch (e: any) {
-      console.error(e.message);
-      continue;
-    }
-    for (const item of items) {
-      if (!item.link || !item.title) continue;
-      console.log(`  → ${item.title}`);
-      try {
-        const rawText = await fetchArticleText(item.link);
-        const md = await toMarkdown(rawText, chat, systemPrompt);
-        await fs.writeFile(
-          path.join(reviewDir, safeFileName(item.title)),
-          md,
-          "utf8"
-        );
-      } catch (e: any) {
-        console.error(e.message);
-      }
+      console.error(`Failed to generate summary: ${e.message}`);
     }
   }
 
-  console.log(`✅  Review created at: ${reviewDir}`);
+  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`🎉  Completed in ${totalTime}s - Review created at: ${reviewDir}`);
 }
 
 main().catch((e) => {

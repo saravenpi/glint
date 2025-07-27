@@ -1,0 +1,26 @@
+# Glint Configuration File
+# Copy this file to ~/glint.yml and customize for your needs
+
+feeds:
+  # International News
+  - https://www.lemonde.fr/rss/une.xml
+  - https://rss.nytimes.com/services/xml/rss/nyt/World.xml
+  - https://feeds.bbci.co.uk/news/world/rss.xml
+  - https://www.theguardian.com/international/rss
+  
+  # Technology News (uncomment if desired)
+  # - https://feeds.feedburner.com/TechCrunch
+  # - https://rss.cnn.com/rss/edition.rss
+  
+  # Business News (uncomment if desired)
+  # - https://feeds.bloomberg.com/markets/news.rss
+  # - https://www.reuters.com/rssFeed/businessNews
+
+# Output directory (~ will be replaced with your home directory)
+outputDir: ~/glint
+
+# Notes:
+# - Each feed will fetch the 5 most recent articles
+# - Articles are cached for 6 hours to avoid duplicate processing
+# - A summary.md file will be generated with all articles organized by topic
+# - Files are saved in daily folders like ~/glint/2025-07-27/
