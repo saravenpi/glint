@@ -8,7 +8,7 @@ import { parallelLimit } from "./performance";
  * @param {number} limit - Maximum number of items to fetch
  * @returns {Promise<FeedItem[]>} Array of feed items
  */
-export async function fetchFeedItems(url: string, limit = 5): Promise<FeedItem[]> {
+export async function fetchFeedItems(url: string, limit: number = 5): Promise<FeedItem[]> {
   try {
     const parser = new RSSParser();
     const feed = await parser.parseURL(url);
@@ -24,7 +24,7 @@ export async function fetchFeedItems(url: string, limit = 5): Promise<FeedItem[]
  * @param {number} limit - Maximum number of items per feed
  * @returns {Promise<{url: string, items: FeedItem[]}[]>} Array of feed results
  */
-export async function fetchAllFeeds(urls: string[], limit = 5): Promise<{ url: string; items: FeedItem[] }[]> {
+export async function fetchAllFeeds(urls: string[], limit: number = 5): Promise<{ url: string; items: FeedItem[] }[]> {
   const fetchFeed = async (url: string) => {
     try {
       const items = await fetchFeedItems(url, limit);

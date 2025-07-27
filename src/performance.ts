@@ -8,13 +8,16 @@
 export async function parallelLimit<T, R>(
   items: T[],
   fn: (item: T) => Promise<R>,
-  limit = 10
+  limit: number = 10
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
   const executing = new Set<Promise<void>>();
 
   for (let i = 0; i < items.length; i++) {
-    const promise = fn(items[i]).then(result => {
+    const item = items[i];
+    if (item === undefined) continue;
+    
+    const promise = fn(item).then(result => {
       results[i] = result;
     }).finally(() => {
       executing.delete(promise);

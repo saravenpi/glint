@@ -4,7 +4,7 @@ import os from "node:os";
 import { z } from "zod";
 import type { Config } from "./types";
 
-const CONFIG_PATH = path.join(os.homedir(), "glint.yml");
+const CONFIG_PATH = path.join(os.homedir(), ".glint.yml");
 
 const configSchema = z.object({
   feeds: z.array(z.string()).nonempty(),
@@ -30,6 +30,7 @@ function parseYaml(yamlContent: string): any {
       }
     } else if (trimmed.includes(':')) {
       const [key, value] = trimmed.split(':', 2);
+      if (!key) continue;
       const cleanKey = key.trim();
       const cleanValue = value?.trim();
       
@@ -47,11 +48,13 @@ function parseYaml(yamlContent: string): any {
 }
 
 /**
- * Load and validate configuration from ~/glint.yml
+ * Load and validate configuration from specified path or default ~/.glint.yml
+ * @param {string} [configPath] - Optional path to config file
  * @returns {Promise<Config>} Validated configuration object
  */
-export async function loadConfig(): Promise<Config> {
-  const raw = await fs.readFile(CONFIG_PATH, "utf8");
+export async function loadConfig(configPath?: string): Promise<Config> {
+  const filePath = configPath ? path.resolve(configPath) : CONFIG_PATH;
+  const raw = await fs.readFile(filePath, "utf8");
   const parsed = parseYaml(raw);
   return configSchema.parse(parsed);
 }

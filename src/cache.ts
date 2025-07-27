@@ -42,7 +42,6 @@ export class ArticleCache {
     try {
       await fs.mkdir(this.cacheDir, { recursive: true });
     } catch {
-      
     }
   }
 
@@ -61,7 +60,6 @@ export class ArticleCache {
         return cached;
       }
     } catch {
-      
     }
     return null;
   }
@@ -79,7 +77,6 @@ export class ArticleCache {
       const data = { text, timestamp: Date.now() };
       await fs.writeFile(cachePath, JSON.stringify(data));
     } catch {
-      
     }
   }
 
@@ -105,7 +102,6 @@ export class ArticleCache {
         }
       }
     } catch {
-      
     }
   }
 }

@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import { parallelLimit } from "./performance";
 
 /**
@@ -22,7 +21,7 @@ export function safeFileName(title: string): string {
  * @returns {string} ISO date string
  */
 export function getCurrentDateISO(): string {
-  return new Date().toISOString().split("T")[0];
+  return new Date().toISOString().split("T")[0] || new Date().toISOString().substring(0, 10);
 }
 
 /**

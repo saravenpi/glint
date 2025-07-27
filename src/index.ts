@@ -17,10 +17,11 @@ import type { ProcessedArticle } from "./types";
  * Main application function that orchestrates the entire news processing pipeline
  * @returns {Promise<void>}
  */
-async function main() {
+async function main(): Promise<void> {
   const startTime = Date.now();
   
-  const config = await loadConfig();
+  const configPath = process.argv[2];
+  const config = await loadConfig(configPath);
   const root = resolveOutputDir(config);
   const dateISO = getCurrentDateISO();
   
@@ -65,6 +66,8 @@ async function main() {
   for (let i = 0; i < validArticles.length; i++) {
     const article = validArticles[i];
     const md = markdownResults[i];
+    
+    if (!article || !md) continue;
     
     filesToWrite.push({
       path: path.join(reviewDir, safeFileName(article.title)),
