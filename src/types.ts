@@ -24,4 +24,14 @@ export interface ProcessedArticle {
   title: string;
   markdown: string;
   feedUrl: string;
+  articleUrl: string;
+}
+
+/**
+ * Source summary containing multiple articles from the same feed
+ */
+export interface SourceSummary {
+  feedUrl: string;
+  articles: ProcessedArticle[];
+  summary: string;
 }

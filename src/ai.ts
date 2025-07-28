@@ -1,14 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import type { ProcessedArticle } from "./types";
+import type { ProcessedArticle, SourceSummary } from "./types";
 import { chunkArray, parallelLimit } from "./performance";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PROMPT_PATH = path.join(__dirname, "..", "prompt.xml");
+const PROMPT_PATH = "prompt.xml";
 
 /**
  * AI processor for converting articles to markdown and generating summaries
@@ -80,21 +77,63 @@ export class AIProcessor {
   }
 
   /**
-   * Generate daily summary from processed articles
-   * @param {ProcessedArticle[]} articles - Array of processed articles
-   * @param {string} date - Date string for the summary
-   * @returns {Promise<string>} Markdown formatted daily summary
+   * Generate summary for a single source with multiple articles directly from raw text
+   * @param {Array} articles - Array with title, url, and raw text content
+   * @param {string} feedUrl - URL of the RSS feed
+   * @returns {Promise<string>} Markdown formatted source summary
    */
-  async generateSummary(articles: ProcessedArticle[], date: string): Promise<string> {
-    const summaryPrompt = `GLINT daily summary for ${date}. ${articles.length} articles.\n\nOrganize by topic. Use headings/bullets. Keep key facts/names/quotes. Neutral tone. GitHub Markdown only.`;
+  async generateSourceSummaryFromRaw(articles: {title: string, url: string, text: string}[], feedUrl: string): Promise<string> {
+    const summaryPrompt = `GLINT source summary for ${new URL(feedUrl).hostname}. ${articles.length} articles from this source.\n\nSummarize the key themes and information from these articles. Use headings/bullets. Include article links in format [Article Title](article_url). Keep key facts/names/quotes. Neutral tone. GitHub Markdown only.`;
 
     const articlesText = articles.map(article => 
-      `${article.title}:\n${article.markdown}`
+      `Title: ${article.title}\nURL: ${article.url}\nContent:\n${article.text.slice(0, 6000)}`
     ).join('\n\n---\n\n');
 
     const response = await this.model.invoke([
       new SystemMessage(summaryPrompt),
       new HumanMessage(articlesText),
+    ]);
+    
+    return response.content.toString();
+  }
+
+  /**
+   * Generate multiple source summaries in parallel from raw article data
+   * @param {Array} sourcesData - Array of source data with raw articles
+   * @returns {Promise<SourceSummary[]>} Array of source summaries with generated content
+   */
+  async generateSourceSummariesFromRaw(sourcesData: {feedUrl: string, articles: {title: string, url: string, text: string}[]}[]): Promise<SourceSummary[]> {
+    const processSource = async (sourceData: {feedUrl: string, articles: {title: string, url: string, text: string}[]}): Promise<SourceSummary> => {
+      const summary = await this.generateSourceSummaryFromRaw(sourceData.articles, sourceData.feedUrl);
+      const processedArticles: ProcessedArticle[] = sourceData.articles.map(article => ({
+        title: article.title,
+        markdown: "", // Not needed anymore
+        feedUrl: sourceData.feedUrl,
+        articleUrl: article.url
+      }));
+      return { feedUrl: sourceData.feedUrl, articles: processedArticles, summary };
+    };
+
+    return await parallelLimit(sourcesData, processSource, 6);
+  }
+
+  /**
+   * Generate global summary from source summaries
+   * @param {SourceSummary[]} sourceSummaries - Array of source summaries
+   * @param {string} date - Date string for the summary
+   * @returns {Promise<string>} Markdown formatted global summary
+   */
+  async generateGlobalSummary(sourceSummaries: SourceSummary[], date: string): Promise<string> {
+    const totalArticles = sourceSummaries.reduce((sum, source) => sum + source.articles.length, 0);
+    const summaryPrompt = `GLINT global summary for ${date}. ${totalArticles} articles from ${sourceSummaries.length} sources.\n\nSummarize the main themes and important news across all sources. Use headings/bullets. Reference sources by domain name. Keep key facts/names/quotes. Neutral tone. GitHub Markdown only.`;
+
+    const sourcesText = sourceSummaries.map(source => 
+      `Source: ${new URL(source.feedUrl).hostname} (${source.articles.length} articles)\nSummary:\n${source.summary}`
+    ).join('\n\n---\n\n');
+
+    const response = await this.model.invoke([
+      new SystemMessage(summaryPrompt),
+      new HumanMessage(sourcesText),
     ]);
     
     return response.content.toString();

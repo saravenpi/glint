@@ -11,7 +11,7 @@ import {
   writeMarkdownFile,
   writeBatchMarkdownFiles 
 } from "./utils";
-import type { ProcessedArticle } from "./types";
+import type { ProcessedArticle, SourceSummary } from "./types";
 
 /**
  * Main application function that orchestrates the entire news processing pipeline
@@ -57,44 +57,63 @@ async function main(): Promise<void> {
   const aiProcessor = new AIProcessor();
   await aiProcessor.loadPrompt();
 
-  console.log(`🤖  Processing with AI...`);
-  const markdownResults = await aiProcessor.batchToMarkdown(validTexts.map(t => t.text));
-
-  const filesToWrite: { path: string; content: string }[] = [];
-  const processedArticles: ProcessedArticle[] = [];
-
-  for (let i = 0; i < validArticles.length; i++) {
-    const article = validArticles[i];
-    const md = markdownResults[i];
+  if (validArticles.length > 0) {
+    console.log("📝  Grouping articles by source and generating summaries directly...");
     
-    if (!article || !md) continue;
-    
-    filesToWrite.push({
-      path: path.join(reviewDir, safeFileName(article.title)),
-      content: md
-    });
-    
-    processedArticles.push({
-      title: article.title,
-      markdown: md,
-      feedUrl: article.feedUrl
-    });
-  }
+    // Group articles by feed URL with raw text
+    const articlesBySource = new Map<string, {title: string, url: string, text: string}[]>();
+    for (let i = 0; i < validArticles.length; i++) {
+      const article = validArticles[i];
+      const textData = validTexts[i];
+      
+      if (!article || !textData || !textData.text) continue;
+      
+      if (!articlesBySource.has(article.feedUrl)) {
+        articlesBySource.set(article.feedUrl, []);
+      }
+      articlesBySource.get(article.feedUrl)!.push({
+        title: article.title,
+        url: article.url,
+        text: textData.text
+      });
+    }
 
-  console.log(`💾  Writing ${filesToWrite.length} files...`);
-  await writeBatchMarkdownFiles(filesToWrite);
+    // Create source data for processing
+    const sourcesData = Array.from(articlesBySource.entries()).map(([feedUrl, articles]) => ({
+      feedUrl,
+      articles
+    }));
 
-  if (processedArticles.length > 0) {
-    console.log("📝  Generating daily summary...");
     try {
-      const summary = await aiProcessor.generateSummary(processedArticles, dateISO);
+      console.log(`🤖  Processing ${sourcesData.length} sources with AI...`);
+      // Generate source summaries directly from raw text (no individual article processing)
+      const sourceSummariesWithContent = await aiProcessor.generateSourceSummariesFromRaw(sourcesData);
+      
+      // Write source summary files
+      const sourceFiles: { path: string; content: string }[] = [];
+      for (const source of sourceSummariesWithContent) {
+        const hostname = new URL(source.feedUrl).hostname;
+        const safeHostname = hostname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        sourceFiles.push({
+          path: path.join(reviewDir, `${safeHostname}_summary.md`),
+          content: source.summary
+        });
+      }
+      
+      console.log(`💾  Writing ${sourceFiles.length} source summary files...`);
+      await writeBatchMarkdownFiles(sourceFiles);
+
+      // Generate and write global summary
+      console.log("📝  Generating global summary...");
+      const globalSummary = await aiProcessor.generateGlobalSummary(sourceSummariesWithContent, dateISO);
       await writeMarkdownFile(
-        path.join(reviewDir, "summary.md"),
-        summary
+        path.join(reviewDir, "global_summary.md"),
+        globalSummary
       );
-      console.log("✅  Summary created");
+      
+      console.log("✅  All summaries created");
     } catch (e: any) {
-      console.error(`Failed to generate summary: ${e.message}`);
+      console.error(`Failed to generate summaries: ${e.message}`);
     }
   }
 

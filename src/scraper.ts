@@ -52,5 +52,5 @@ export async function fetchAllArticles(urls: string[]): Promise<{ url: string; t
     }
   };
 
-  return parallelLimit(urls, fetchArticle, 15);
+  return parallelLimit(urls, fetchArticle, 25);
 }
