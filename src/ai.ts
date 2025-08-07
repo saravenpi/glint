@@ -1,11 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ProcessedArticle, SourceSummary } from "./types";
 import { chunkArray, parallelLimit } from "./performance";
 
-const PROMPT_PATH = "prompt.xml";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROMPT_PATH = path.join(__dirname, "prompt.xml");
 
 /**
  * AI processor for converting articles to markdown and generating summaries
