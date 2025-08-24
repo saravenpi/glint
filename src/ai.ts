@@ -16,20 +16,29 @@ const PROMPT_PATH = path.join(__dirname, "prompt.xml");
 export class AIProcessor {
   private model: ChatOpenAI;
   private systemPrompt: string | null = null;
+  private language?: string;
 
-  constructor() {
+  constructor(language?: string) {
     this.model = new ChatOpenAI({
       temperature: 0.3,
       modelName: "gpt-4o-mini",
     });
+    this.language = language || "English";
   }
 
   /**
    * Load system prompt from prompt.xml file
+   * @param {string} [language] - Optional language for output
    * @returns {Promise<void>}
    */
-  async loadPrompt(): Promise<void> {
-    this.systemPrompt = await fs.readFile(PROMPT_PATH, "utf8");
+  async loadPrompt(language?: string): Promise<void> {
+    let prompt = await fs.readFile(PROMPT_PATH, "utf8");
+    
+    const lang = language || "English";
+    const languageInstruction = `• Write output in ${lang}`;
+    prompt = prompt.replace('{{LANGUAGE_INSTRUCTION}}', languageInstruction);
+    
+    this.systemPrompt = prompt;
   }
 
   /**
@@ -39,7 +48,7 @@ export class AIProcessor {
    */
   async toMarkdown(article: string): Promise<string> {
     if (!this.systemPrompt) {
-      await this.loadPrompt();
+      await this.loadPrompt(this.language);
     }
 
     const response = await this.model.invoke([
@@ -57,7 +66,7 @@ export class AIProcessor {
    */
   async batchToMarkdown(articles: string[]): Promise<string[]> {
     if (!this.systemPrompt) {
-      await this.loadPrompt();
+      await this.loadPrompt(this.language);
     }
 
     const processArticle = async (article: string) => {
@@ -86,7 +95,8 @@ export class AIProcessor {
    * @returns {Promise<string>} Markdown formatted source summary
    */
   async generateSourceSummaryFromRaw(articles: {title: string, url: string, text: string}[], feedUrl: string): Promise<string> {
-    const summaryPrompt = `GLINT source summary for ${new URL(feedUrl).hostname}. ${articles.length} articles from this source.\n\nSummarize the key themes and information from these articles. Use headings/bullets. Include article links in format [Article Title](article_url). Keep key facts/names/quotes. Neutral tone. GitHub Markdown only.`;
+    const lang = this.language || "English";
+    let summaryPrompt = `GLINT source summary for ${new URL(feedUrl).hostname}. ${articles.length} articles from this source.\n\nSummarize the key themes and information from these articles. Use headings/bullets. Include article links in format [Article Title](article_url). Keep key facts/names/quotes. Neutral tone. GitHub Markdown only. Write output in ${lang}.`;
 
     const articlesText = articles.map(article => 
       `Title: ${article.title}\nURL: ${article.url}\nContent:\n${article.text.slice(0, 6000)}`
@@ -128,7 +138,8 @@ export class AIProcessor {
    */
   async generateGlobalSummary(sourceSummaries: SourceSummary[], date: string): Promise<string> {
     const totalArticles = sourceSummaries.reduce((sum, source) => sum + source.articles.length, 0);
-    const summaryPrompt = `GLINT global summary for ${date}. ${totalArticles} articles from ${sourceSummaries.length} sources.\n\nSummarize the main themes and important news across all sources. Use headings/bullets. Reference sources by domain name. Keep key facts/names/quotes. Neutral tone. GitHub Markdown only.`;
+    const lang = this.language || "English";
+    let summaryPrompt = `GLINT global summary for ${date}. ${totalArticles} articles from ${sourceSummaries.length} sources.\n\nSummarize the main themes and important news across all sources. Use headings/bullets. Reference sources by domain name. Keep key facts/names/quotes. Neutral tone. GitHub Markdown only. Write output in ${lang}.`;
 
     const sourcesText = sourceSummaries.map(source => 
       `Source: ${new URL(source.feedUrl).hostname} (${source.articles.length} articles)\nSummary:\n${source.summary}`

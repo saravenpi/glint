@@ -4,6 +4,7 @@
 export interface Config {
   feeds: string[];
   outputDir?: string;
+  language?: string;
 }
 
 /**

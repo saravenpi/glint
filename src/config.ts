@@ -9,6 +9,7 @@ const CONFIG_PATH = path.join(os.homedir(), ".glint.yml");
 const configSchema = z.object({
   feeds: z.array(z.string()).nonempty(),
   outputDir: z.string().optional(),
+  language: z.string().optional(),
 });
 
 /**

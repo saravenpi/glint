@@ -19,6 +19,10 @@ feeds:
 # Output directory (~ will be replaced with your home directory)
 outputDir: ~/glint
 
+# Output language (optional, defaults to English)
+# Examples: "French", "Spanish", "German", "Italian", "Portuguese", "Japanese", etc.
+language: English
+
 # Notes:
 # - Each feed will fetch the 5 most recent articles
 # - Articles are cached for 6 hours to avoid duplicate processing

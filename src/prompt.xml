@@ -7,6 +7,7 @@
     • Use headings & bullets
     • Neutral tone
     • GitHub Markdown only
+    {{LANGUAGE_INSTRUCTION}}
   </instructions>
 
   <output_format>markdown</output_format>

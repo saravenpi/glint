@@ -12,6 +12,7 @@ import {
   writeBatchMarkdownFiles 
 } from "./utils";
 import type { ProcessedArticle, SourceSummary } from "./types";
+import { selfUpdate, checkForUpdate, getCurrentVersion } from "./updater";
 
 /**
  * Main application function that orchestrates the entire news processing pipeline
@@ -20,7 +21,38 @@ import type { ProcessedArticle, SourceSummary } from "./types";
 async function main(): Promise<void> {
   const startTime = Date.now();
   
-  const configPath = process.argv[2];
+  const arg = process.argv[2];
+  
+  // Handle special commands
+  if (arg === "update") {
+    await selfUpdate();
+    process.exit(0);
+  } else if (arg === "check") {
+    const { available, current, latest } = await checkForUpdate();
+    if (available) {
+      console.log(`🆕 Update available: v${current} → v${latest}`);
+      console.log("Run 'glint update' to install");
+    } else {
+      console.log(`✅ You're on the latest version (v${current})`);
+    }
+    process.exit(0);
+  } else if (arg === "version" || arg === "--version" || arg === "-v") {
+    const version = await getCurrentVersion();
+    console.log(`Glint v${version}`);
+    process.exit(0);
+  } else if (arg === "help" || arg === "--help" || arg === "-h") {
+    const version = await getCurrentVersion();
+    console.log(`Glint v${version} - High-performance RSS to Markdown converter`);
+    console.log("\nUsage:");
+    console.log("  glint [config]    - Process feeds (default: ~/.glint.yml)");
+    console.log("  glint update      - Update to latest version");
+    console.log("  glint check       - Check for updates");
+    console.log("  glint version     - Show version");
+    console.log("  glint help        - Show this help");
+    process.exit(0);
+  }
+  
+  const configPath = arg;
   const config = await loadConfig(configPath);
   const root = resolveOutputDir(config);
   const dateISO = getCurrentDateISO();
@@ -30,7 +62,8 @@ async function main(): Promise<void> {
   const reviewDir = path.join(root, dateISO);
   await ensureDirectoryExists(reviewDir);
 
-  console.log(`🚀  Starting parallel processing of ${config.feeds.length} feeds...`);
+  const version = await getCurrentVersion();
+  console.log(`🚀  Glint v${version} - Starting parallel processing of ${config.feeds.length} feeds...`);
 
   const feedResults = await fetchAllFeeds(config.feeds);
   const allArticles = feedResults.flatMap(({ url, items }) => 
@@ -54,8 +87,8 @@ async function main(): Promise<void> {
 
   console.log(`📝  Successfully scraped ${validArticles.length} articles`);
 
-  const aiProcessor = new AIProcessor();
-  await aiProcessor.loadPrompt();
+  const aiProcessor = new AIProcessor(config.language || "English");
+  await aiProcessor.loadPrompt(config.language || "English");
 
   if (validArticles.length > 0) {
     console.log("📝  Grouping articles by source and generating summaries directly...");
