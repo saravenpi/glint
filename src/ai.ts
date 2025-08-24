@@ -1,14 +1,22 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ProcessedArticle, SourceSummary } from "./types";
 import { chunkArray, parallelLimit } from "./performance";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PROMPT_PATH = path.join(__dirname, "prompt.xml");
+const PROMPT_TEMPLATE = `<prompt>
+  <instructions>
+    GLINT news condensor. Summarize article in 40% length Markdown.
+
+    Requirements:
+    • Keep all facts, figures, names, quotes
+    • Use headings & bullets
+    • Neutral tone
+    • GitHub Markdown only
+    {{LANGUAGE_INSTRUCTION}}
+  </instructions>
+
+  <output_format>markdown</output_format>
+</prompt>`;
 
 /**
  * AI processor for converting articles to markdown and generating summaries
@@ -27,12 +35,12 @@ export class AIProcessor {
   }
 
   /**
-   * Load system prompt from prompt.xml file
+   * Load system prompt with language configuration
    * @param {string} [language] - Optional language for output
    * @returns {Promise<void>}
    */
   async loadPrompt(language?: string): Promise<void> {
-    let prompt = await fs.readFile(PROMPT_PATH, "utf8");
+    let prompt = PROMPT_TEMPLATE;
     
     const lang = language || "English";
     const languageInstruction = `• Write output in ${lang}`;
